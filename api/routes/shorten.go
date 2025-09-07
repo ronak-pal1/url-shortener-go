@@ -104,5 +104,23 @@ func ShortenURL(c *fiber.Ctx) error {
 
 	r2.Decr(database.Ctx, c.IP())
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "URL is successfully shortened"})
+	resp := response{
+		URL:             body.URL,
+		CustomShort:     "",
+		Expiry:          body.Expiry,
+		XRateRemaining:  10,
+		XRateLimitReset: 30,
+	}
+
+	rate_val, _ := r2.Get(database.Ctx, c.IP()).Result()
+
+	resp.XRateRemaining, _ = strconv.Atoi(rate_val)
+
+	ttl, _ := r2.TTL(database.Ctx, c.IP()).Result()
+
+	resp.XRateLimitReset = ttl / time.Nanosecond / time.Minute
+
+	resp.CustomShort = os.Getenv("DOMAIN") + "/" + id
+
+	return c.Status(fiber.StatusOK).JSON(resp)
 }
